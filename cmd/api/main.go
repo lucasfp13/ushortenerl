@@ -3,23 +3,30 @@ package main
 import (
 	"context"
 	"log"
-	"time"
+	"net/http"
 
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/joho/godotenv"
+
+	"github.com/lucasfp13/ushortenerl/db"
+	"github.com/lucasfp13/ushortenerl/handler"
 )
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	godotenv.Load()
+	err := db.MongoConnect()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("MongoDB connection error: %v", err)
 	}
 
-	err = client.Ping(ctx, nil)
-	if err != nil {
-		log.Fatal("Connection error:", err)
-	}
+	defer func() {
+		if err := db.Client.Disconnect(context.Background()); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	http.HandleFunc("/create", handler.CreateHandler)
+	http.HandleFunc("/r/", handler.RedirectHandler)
+
+	log.Println("Service running at :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
